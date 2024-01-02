@@ -1,0 +1,4 @@
+node-app/node_modules/
+node-app/npm-debug.log
+node-app/yarn-error.log
+node-app/dist/

@@ -1,0 +1,160 @@
+admin:
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 9901
+
+static_resources:
+  secrets:
+  - name: token
+    generic_secret:
+      secret:
+        inline_string: ${TOKEN_GENERIC_SECRET}
+  - name: hmac
+    generic_secret:
+      secret:
+        inline_string: ${HMAC_GENERIC_SECRET}
+  # Listener to verify JWT Token
+  listeners:
+  - address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: ${ENVOY_LISTENER_PORT}
+    filter_chains:
+    - filters:
+      # Routing Setting for HTTP
+      # refs -> https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#extensions-filters-network-http-connection-manager-v3-httpconnectionmanager
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          codec_type: AUTO
+          stat_prefix: ingress_http
+          # Routing Settings for HTTP. Route traffics to node-app
+          route_config:
+            name: demo_app
+            virtual_hosts:
+            - name: demo_app_hosts
+              domains:
+              - '*'
+              routes:
+              - match:
+                  prefix: "/"
+                route:
+                  cluster: node-app-service
+                  timeout: 5s
+          http_filters:
+          # refs -> https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/jwt_authn/v3/config.proto#extensions-filters-http-jwt-authn-v3-jwtauthentication
+          - name: envoy.filters.http.jwt_authn
+            typed_config:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+              providers:
+                aadb2c:
+                  issuer: ${AADB2C_TOKEN_ISSUER}
+                  audiences:
+                  - ${AADB2C_APPLICATION_CLIENT_ID}
+                  remote_jwks:
+                    http_uri:
+                      uri: ${AADB2C_JWKS_ENDPOINT_URI}
+                      cluster: aadb2c
+                      timeout: 5s
+              rules:
+              - match:
+                  prefix: /
+                requires:
+                  provider_name: aadb2c
+          - name: envoy.filters.http.router
+            typed_config:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  # Listener to retrieve JWT token based on authorization code flow.
+  - address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: 8081
+    filter_chains:
+    - filters:
+      # Routing Setting for HTTP
+      # refs -> https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#extensions-filters-network-http-connection-manager-v3-httpconnectionmanager
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          codec_type: AUTO
+          stat_prefix: ingress_http
+          # Routing Settings for HTTP.
+          route_config:
+            name: demo_app
+            virtual_hosts:
+            - name: demo_app_hosts
+              domains:
+              - '*'
+              routes:
+              - match:
+                  prefix: "/"
+                route:
+                  # refer config of cluster.
+                  cluster: node-app-service
+                  auto_host_rewrite: true
+                  timeout: 15s
+          http_filters:
+          # refs -> https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/oauth2_filter
+          - name: envoy.filters.http.oauth2
+            typed_config:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2
+              config:
+                token_endpoint:
+                  cluster: aadb2c
+                  uri: ${AADB2C_TOKEN_ENDPOINT_URI}
+                  timeout: 5s
+                authorization_endpoint: ${AADB2C_AUTHORIZE_ENDPOINT_URI}
+                redirect_uri: ${AADB2C_CALLBACK_URL}
+                redirect_path_matcher:
+                  path:
+                    exact: /callback
+                signout_path:
+                  path:
+                    exact: /signout
+                credentials:
+                  client_id: ${AADB2C_APPLICATION_CLIENT_ID}
+                  token_secret:
+                    name: token
+                  hmac_secret:
+                    name: hmac
+                auth_scopes:
+                  - openid
+                  - offline_access
+                  - ${AADB2C_API_SCOPE}
+          - name: envoy.filters.http.router
+            typed_config:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+  # node-app host
+  - name: node-app-service
+    type: LOGICAL_DNS
+    dns_lookup_family: V4_ONLY
+    load_assignment:
+      cluster_name: node-app-service
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: node-app
+                port_value: 3000
+  # aadb2c host
+  - name: aadb2c
+    type: LOGICAL_DNS
+    dns_lookup_family: V4_ONLY
+    load_assignment:
+      cluster_name: aadb2c
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: ${AADB2C_HOST}
+                port_value: 443
+    transport_socket:
+      name: envoy.transport_sockets.tls
+      typed_config:
+        '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext

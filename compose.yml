@@ -1,0 +1,42 @@
+version: "3.8"
+services:
+  # Node App settings
+  node-app:
+    build:
+      context: ./node-app
+    tty: true
+    volumes:
+      - ./node-app:/app
+    ports:
+    - "3000:3000"
+    environment:
+      NODE_ENV: development
+      AADB2C_HOSTNAME: ${AADB2C_HOST}
+      AADB2C_TENANT: ${AADB2C_TENANT}
+      AADB2C_APPLICATION_CLIENT_ID: ${AADB2C_APPLICATION_CLIENT_ID}
+      AADB2C_APPLICATION_CLIENT_SECRET: ${AADB2C_APPLICATION_CLIENT_SECRET}
+      AADB2C_USERFLOW_POLICY: ${AADB2C_USERFLOW_POLICY}
+  # Envoy Proxy settings
+  envoy:
+    build: ./envoy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: yarn dev
+    ports:
+      - "${ENVOY_LISTENER_PORT}:${ENVOY_LISTENER_PORT}"
+      - "8081:8081"
+      - "9901:9901"
+    environment:
+      TOKEN_GENERIC_SECRET: ${AADB2C_APPLICATION_CLIENT_SECRET}
+      HMAC_GENERIC_SECRET: ${HMAC_GENERIC_SECRET}
+      ENVOY_LISTENER_PORT: ${ENVOY_LISTENER_PORT}
+      AADB2C_HOST: ${AADB2C_HOST}
+      AADB2C_TOKEN_ISSUER: ${AADB2C_TOKEN_ISSUER}
+      AADB2C_APPLICATION_CLIENT_ID: ${AADB2C_APPLICATION_CLIENT_ID}
+      AADB2C_JWKS_ENDPOINT_URI: ${AADB2C_JWKS_ENDPOINT_URI}
+      AADB2C_TOKEN_ENDPOINT_URI: ${AADB2C_TOKEN_ENDPOINT_URI}
+      AADB2C_AUTHORIZE_ENDPOINT_URI: ${AADB2C_AUTHORIZE_ENDPOINT_URI}
+      AADB2C_CALLBACK_URL: ${AADB2C_CALLBACK_URL}
+      AADB2C_API_SCOPE: ${AADB2C_API_SCOPE}
+      ENVOY_DEBUG_LEVEL: ${ENVOY_DEBUG_LEVEL}
