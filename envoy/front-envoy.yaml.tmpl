@@ -70,7 +70,7 @@ static_resources:
   - address:
       socket_address:
         address: 0.0.0.0
-        port_value: 8081
+        port_value: ${ENVOY_SIGNIN_PORT}
     filter_chains:
     - filters:
       # Routing Setting for HTTP
