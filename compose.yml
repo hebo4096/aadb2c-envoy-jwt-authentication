@@ -5,8 +5,6 @@ services:
     build:
       context: ./node-app
     tty: true
-    volumes:
-      - ./node-app:/app
     ports:
     - "3000:3000"
     environment:
@@ -19,18 +17,15 @@ services:
   # Envoy Proxy settings
   envoy:
     build: ./envoy
-    volumes:
-      - .:/app
-      - /app/node_modules
-    command: yarn dev
     ports:
       - "${ENVOY_LISTENER_PORT}:${ENVOY_LISTENER_PORT}"
-      - "8081:8081"
+      - "${ENVOY_SIGNIN_PORT}:${ENVOY_SIGNIN_PORT}"
       - "9901:9901"
     environment:
       TOKEN_GENERIC_SECRET: ${AADB2C_APPLICATION_CLIENT_SECRET}
       HMAC_GENERIC_SECRET: ${HMAC_GENERIC_SECRET}
       ENVOY_LISTENER_PORT: ${ENVOY_LISTENER_PORT}
+      ENVOY_SIGNIN_PORT: ${ENVOY_SIGNIN_PORT}
       AADB2C_HOST: ${AADB2C_HOST}
       AADB2C_TOKEN_ISSUER: ${AADB2C_TOKEN_ISSUER}
       AADB2C_APPLICATION_CLIENT_ID: ${AADB2C_APPLICATION_CLIENT_ID}

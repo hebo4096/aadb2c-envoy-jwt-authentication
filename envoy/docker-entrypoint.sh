@@ -11,6 +11,11 @@ if [ ! -n "$ENVOY_LISTENER_PORT" ]; then
   exit 1
 fi
 
+if [ ! -n "$ENVOY_SIGNIN_PORT" ]; then
+  echo "ENVOY_SIGNIN_PORT is missing in .env file"
+  exit 1
+fi
+
 if [ ! -n "$AADB2C_HOST" ]; then
   echo "AADB2C_HOST is missing in .env file"
   exit 1
