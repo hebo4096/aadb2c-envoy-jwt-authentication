@@ -40,10 +40,6 @@ AADB2C_API_SCOPE=https://yourtenant.onmicrosoft.com/00000000-0000-0000-0000-0000
 3. docker compose にてローカル環境に検証環境を立ち上げます
 
 ```
-cd node-app/; yarn install
-
-cd ..
-
 docker compose up
 ```
 
